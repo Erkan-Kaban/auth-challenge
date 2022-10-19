@@ -1,9 +1,12 @@
-from flask import Flask, jsonify
+from sqlite3 import IntegrityError
+from flask import Flask, jsonify, request
 app = Flask(__name__)
 
 from flask_marshmallow import Marshmallow
 ma = Marshmallow(app)
 
+from flask_bcrypt import Bcrypt
+bcrypt = Bcrypt(app)
 
 ## DB CONNECTION AREA
 
@@ -22,6 +25,19 @@ def create_db():
 
 @app.cli.command("seed")
 def seed_db():
+
+    # Added users here
+    users = [
+        User(
+        username="Erkan",
+        password=bcrypt.generate_password_hash("eggs").decode('utf-8')
+        ),
+        User(
+        username="Oli",
+        password=bcrypt.generate_password_hash("eggs2").decode('utf-8')
+        )
+    ]
+    db.session.add_all(users)
 
     movie1 = Movie(
         title = "Spider-Man: No Way Home",
@@ -83,7 +99,7 @@ def drop_db():
 
 # made changes here first.
 class User(db.Model):
-    __tablename__ = "USERS"
+    __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String)
     password = db.Column(db.String)
@@ -106,6 +122,10 @@ class Actor(db.Model):
     country = db.Column(db.String())
 
 # SCHEMAS AREA
+
+class UserSchema(ma.Schema):
+    class Meta:
+        fields = ("username", "password")
 
 class MovieSchema(ma.Schema):
     class Meta:
@@ -139,3 +159,21 @@ def get_actors():
     actors_list = Actor.query.all()
     result = actors_schema.dump(actors_list)
     return jsonify(result)
+
+@app.route('/auth/signup/', methods=['POST'])
+def signup():
+    try:
+        # load the posted user info and parse the JSON
+        user_signup = UserSchema().load(request.json)
+        # Create a new user model instance from the user_info
+        user = User(
+            username=user_signup['username'],
+            password=bcrypt.generate_password_hash(user_signup['password']).decode('utf8')
+        )
+        # Add and commit user to DB
+        db.session.add(user)
+        db.session.commit()
+        # Respond to client
+        return UserSchema(exclude=['password']).dump(user), 201
+    except IntegrityError:
+        return {'error': 'please enter correct password or user'}, 409
