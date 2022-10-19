@@ -81,6 +81,14 @@ def drop_db():
 
 # MODELS AREA
 
+# made changes here first.
+class User(db.Model):
+    __tablename__ = "USERS"
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String)
+    password = db.Column(db.String)
+
+
 class Movie(db.Model):
     __tablename__= "MOVIES"
     id = db.Column(db.Integer,primary_key=True)
@@ -120,13 +128,13 @@ actors_schema = ActorSchema(many=True)
 def hello():
   return "Welcome to Ripe Tomatoes API"
 
-@app.route("/movies", methods=["GET"])
+@app.route("/movies/", methods=["GET"])
 def get_movies():
     movies_list = Movie.query.all()
     result = movies_schema.dump(movies_list)
     return jsonify(result)
 
-@app.route("/actors", methods=["GET"])
+@app.route("/actors/", methods=["GET"])
 def get_actors():
     actors_list = Actor.query.all()
     result = actors_schema.dump(actors_list)
