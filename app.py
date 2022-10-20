@@ -9,7 +9,7 @@ ma = Marshmallow(app)
 from flask_bcrypt import Bcrypt
 bcrypt = Bcrypt(app)
 
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 jwt = JWTManager(app)
 
 ## DB CONNECTION AREA
@@ -40,6 +40,11 @@ def seed_db():
         User(
         username="Oli",
         password=bcrypt.generate_password_hash("eggs2").decode('utf-8')
+        ),
+        User(
+            username="admin",
+            password=bcrypt.generate_password_hash("egg").decode('utf-8'),
+            is_admin=True
         )
     ]
     db.session.add_all(users)
@@ -106,8 +111,9 @@ def drop_db():
 class User(db.Model):
     __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String)
-    password = db.Column(db.String)
+    username = db.Column(db.String, nullable=False)
+    password = db.Column(db.String, nullable=False)
+    is_admin = db.Column(db.Boolean, default=False)
 
 
 class Movie(db.Model):
@@ -130,7 +136,7 @@ class Actor(db.Model):
 
 class UserSchema(ma.Schema):
     class Meta:
-        fields = ("username", "password")
+        fields = ("username", "password", "is_admin")
 
 class MovieSchema(ma.Schema):
     class Meta:
@@ -162,6 +168,11 @@ def get_movies():
 @app.route("/actors/", methods=["GET"])
 @jwt_required()
 def get_actors():
+    user_id = get_jwt_identity()
+    stmt = db.select(User).filter_by(id=user_id)
+    user = db.session.scalar(stmt)
+    if not user.is_admin:
+        return {'error': 'You must be an admin'}, 401
     actors_list = Actor.query.all()
     result = actors_schema.dump(actors_list)
     return jsonify(result)
