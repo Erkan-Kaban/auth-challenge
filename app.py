@@ -177,3 +177,12 @@ def signup():
         return UserSchema(exclude=['password']).dump(user), 201
     except IntegrityError:
         return {'error': 'please enter correct password or user'}, 409
+
+@app.route('/auth/signin/', methods=['POST'])
+def signin():
+    stmt = db.select(User).filter_by(username=request.json['username'])
+    user = db.session.scalar(stmt)
+    if user and bcrypt.check_password_hash(user.password, request.json['password']):
+        return UserSchema(exclude=['password']).dump(user)
+    else:
+        return {'error': 'invalid passsword or email'}, 401 
