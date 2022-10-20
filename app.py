@@ -1,3 +1,4 @@
+from datetime import timedelta
 from sqlite3 import IntegrityError
 from flask import Flask, jsonify, request
 app = Flask(__name__)
@@ -8,11 +9,15 @@ ma = Marshmallow(app)
 from flask_bcrypt import Bcrypt
 bcrypt = Bcrypt(app)
 
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required
+jwt = JWTManager(app)
+
 ## DB CONNECTION AREA
 
 from flask_sqlalchemy import SQLAlchemy 
 app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql+psycopg2://tomato:123456@localhost:5432/ripe_tomatoes_db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config['JWT_SECRET_KEY'] = 'hello'
 
 db = SQLAlchemy(app)
 
@@ -155,6 +160,7 @@ def get_movies():
     return jsonify(result)
 
 @app.route("/actors/", methods=["GET"])
+@jwt_required()
 def get_actors():
     actors_list = Actor.query.all()
     result = actors_schema.dump(actors_list)
@@ -183,6 +189,8 @@ def signin():
     stmt = db.select(User).filter_by(username=request.json['username'])
     user = db.session.scalar(stmt)
     if user and bcrypt.check_password_hash(user.password, request.json['password']):
-        return UserSchema(exclude=['password']).dump(user)
+        # return UserSchema(exclude=['password']).dump(user)
+        token = create_access_token(identity=str(user.id), expires_delta=timedelta(days=1))
+        return {'username': user.username, 'token': token}
     else:
         return {'error': 'invalid passsword or email'}, 401 
